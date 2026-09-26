@@ -72,6 +72,8 @@ function onObjectEnterZone(zone, obj)
 	-- card ownership: stamp owner in a private zone, glow foreign cards on mats (ownership.lua)
 	stampOwnershipOnEnter(zone, obj)
 	ownershipMatEnter(zone, obj)
+	-- Mindmoil: show its trigger button while it sits on a playmat (mindmoil.lua)
+	mindmoilEnter(zone, obj)
 	local inHandZone = false
 	local inPlayZone = false
 	local inLibrZone = false
@@ -126,6 +128,8 @@ function onObjectLeaveZone(zone, obj)
 	fetchlandLeave(zone, obj)
 	-- card ownership: clear the foreign-card glow when it leaves a mat (ownership.lua)
 	ownershipMatLeave(zone, obj)
+	-- Mindmoil: drop its trigger button when it leaves a playmat (mindmoil.lua)
+	mindmoilLeave(zone, obj)
 	local inHandZone = false
 	local inPlayZone = false
 	local inLibrZone = false
