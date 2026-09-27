@@ -88,17 +88,11 @@ function TryAutoRegister(data)
     end
 end
 
+-- pieHere, disabled: this overwrote our Encoder's script with upstream's, dropping
+-- the local changes the table depends on. Left defined so any stray caller no-ops
+-- loudly instead of erroring.
 function ForceEncoderUpdate(placeholderCode)
-    local placeholderCode = placeholderCode.text
-
-    local encoder = Global.getVar('Encoder')
-    if encoder ~= nil then
-        encoder.script_code = placeholderCode
-        encoder.reload()
-
-        local dataTable = {recursiveCall=false}
-        TryAutoRegister(dataTable)
-    else broadcastToAll("[888888][EASY MODULES][-]\nFailed to find Encoder to update") end
+    broadcastToAll("[888888][EASY MODULES][-]\nEncoder updating is disabled on this table -- our Encoder is a local fork.", {1, 0.6, 0.2})
 end
 
 function ForceImporterUpdate(placeholderCode)
@@ -128,11 +122,9 @@ function ForcePlaceholderDependency(placeholderCode, moduleName)
     spawnObject(spawnParams)
 end
 
+-- pieHere, disabled for the same reason as ForceEncoderUpdate above.
 function ForcePlaceholderEncoder(placeholderCode)
-    ForcePlaceholderDependency(placeholderCode, "Encoder")
-
-    local dataTable = {recursiveCall=false}
-    TryAutoRegister(dataTable)
+    broadcastToAll("[888888][EASY MODULES][-]\nEncoder updating is disabled on this table -- our Encoder is a local fork.", {1, 0.6, 0.2})
 end
 
 function ForcePlaceholderImporter(placeholderCode)
@@ -377,10 +369,13 @@ function onChat(message, player)
     local message = string.lower(message)
 
     if string.find(message,'^force encoder') ~= nil then
-        if string.find (message,'update') ~= nil then
-            WebRequest.get("https://raw.githubusercontent.com/Jophire/Tabletop-Simulator-Workshop-Items/master/Encoder/Encoder%20Core.lua", self, "ForceEncoderUpdate")
-        elseif string.find (message,'temporary') ~= nil then
-            WebRequest.get("https://raw.githubusercontent.com/Jophire/Tabletop-Simulator-Workshop-Items/master/Encoder/Encoder%20Core.lua", self, "ForcePlaceholderEncoder")
+        -- pieHere, 'force encoder update' / 'temporary' pulled Encoder Core from
+        -- upstream and overwrote our Encoder's script. Our copy carries local
+        -- changes the table depends on (APIregisterButtonProvider), so those two
+        -- are disabled; 'force encoder reload' just re-runs the current script and
+        -- is still fine.
+        if string.find (message,'update') ~= nil or string.find (message,'temporary') ~= nil then
+            broadcastToAll("[888888][EASY MODULES][-]\nEncoder updating is disabled on this table -- our Encoder is a local fork. Use 'force encoder reload' to reload the current script.", {1, 0.6, 0.2})
         elseif string.find (message, 'reload') ~= nil then
             enc = Global.getVar("Encoder")
             if enc ~= nil then

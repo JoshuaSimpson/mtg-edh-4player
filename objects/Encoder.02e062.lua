@@ -4,6 +4,19 @@
 -- https://steamcommunity.com/sharedfiles/filedetails/?id=828894732
 -- I will not provide support for my version -- I honestly don't remember what I changed to get it to work for me the way I needed
 -- just in case, I might have it set to non-interactable to filter out folks who can't script at all
+--
+-- LOCAL CHANGES:
+--  1. ExternalButtons + APIregisterButtonProvider / APIunregisterButtonProvider
+--     (search for them below), so the Global script can keep its own buttons on a
+--     card across the encoder's rebuilds. The Global script broadcasts a warning
+--     on load if that API has gone missing (see src/ui/card_buttons.lua).
+--  2. The self-updater is gone: callVersionCheck / updateCheck / versionCheck, the
+--     'Update' and branch-switching context items, the on-load version ping and the
+--     ENCODER / ENCODER_BETA urls. They pulled Encoder Core from upstream and
+--     overwrote this object's script, taking change 1 with it. The same was done to
+--     'force encoder update' in Easy Modules Unified (b93b40), which was the one
+--     anybody at the table could trigger, from chat.
+-- Updating this object now means editing this file and rebuilding the save.
 
 
 --By Tipsy Hobbit
@@ -14,10 +27,20 @@ version_string = "No longer save styles."
 change_log = [[NEW functions remove need for spawning zones~
 ]]
 
+--External button providers (added by pi for this table).
+--Scripts outside the encoder can register here to have their own buttons put
+--back on an object every time the encoder rebuilds its buttons -- buildButtons
+--starts with clearButtons(), so anything a foreign script added is otherwise
+--dropped and has to be chased down at every rebuild site. Holds live object
+--references and is deliberately NOT part of onSave: providers re-register on
+--load (see registerGlobalCardButtons in the Global script).
+ExternalButtons = {}
+
 --Important URLs for tracking updates, as-well-as downloading xml menus for the encoder.
+--ENCODER / ENCODER_BETA (the self-update sources) were removed by pi -- see the
+--header. BASIC_MENU is NOT an updater: it bootstraps a default menu module if the
+--table somehow has none registered, and this table ships its own.
 URLS={
-  ENCODER='https://raw.githubusercontent.com/Jophire/Tabletop-Simulator-Workshop-Items/master/Encoder/Encoder%20Core.lua',
-  ENCODER_BETA='https://raw.githubusercontent.com/Jophire/Tabletop-Simulator-Workshop-Items/update_branch/Encoder/Encoder%20Core.lua',
   XML='https://raw.githubusercontent.com/Jophire/Tabletop-Simulator-Workshop-Items/update_branch/Encoder/XML.json',
   BASIC_MENU='https://raw.githubusercontent.com/Jophire/Tabletop-Simulator-Workshop-Items/master/Encoder/Modules/Encoder_Menu_Default.lua'
   }
@@ -229,46 +252,12 @@ function onLoad(saved_data)
   createEncoderButtons()
 
   self.clearContextMenu()
-  self.addContextMenuItem('Main Branch', function(p)
-    if Player[p].admin then
-      CORE_VALUE.beta = false
-      Player[p].broadcast('Switching back to the stable update branch.')
-      Player[p].broadcast("Please don't forget to preform a version check to force the swith to occur.")
-    else
-      Player[p].broadcast('Please ask the server host or an admin to change versions.')
-    end
-  end
-  )
-  self.addContextMenuItem('Beta Branch', function(p)
-    if Player[p].admin then
-      CORE_VALUE.beta = true
-      Player[p].broadcast('Switching to the un-stable update branch.')
-      Player[p].broadcast("Please don't forget to preform a version check to force the swith to occur.")
-      Player[p].broadcast("Bugs are to be expected.")
-    else
-      Player[p].broadcast('Please ask the server host or an admin to change versions.')
-    end
-  end
-  )
-  self.addContextMenuItem('Update', function(p)
-    if Player[p].admin then
-      callVersionCheck(p)
-      broadcastToAll('Preforming an update.')
-    else
-      Player[p].broadcast('Please ask the server host or an admin to check for updates.')
-    end
-  end
-  )
+  --'Main Branch' / 'Beta Branch' / 'Update' context items removed by pi along with
+  --the self-updater they drove.
   self.addContextMenuItem('Clean Tables', function(p)
     garbageCollect()
   end
   )
-  if CORE_VALUE.beta then
-    WebRequest.get(URLS['ENCODER_BETA'],self,"updateCheck")
-  else
-    WebRequest.get(URLS['ENCODER'],self,"updateCheck")
-  end
-
   --In the event that there are no menus registered, download the default menu.
   Wait.frames(function()
     buildZones()
@@ -340,54 +329,11 @@ function onSave()
   return saved_data
 end
 
--- Calls the version check for the encoder, and any modules
--- which support an update check.
-function callVersionCheck()
-  if CORE_VALUE.beta then
-    WebRequest.get(URLS['ENCODER_BETA'],self,"versionCheck")
-  else
-    WebRequest.get(URLS['ENCODER'],self,"versionCheck")
-  end
-  for k,v in pairs(Properties) do
-    u = v.funcOwner.getVar('UPDATE_URL')
-    if u ~= nil then
-      WebRequest.get(u,v.funcOwner,"updateModule")
-    end
-  end
-  for k,v in pairs(Menus) do
-    u = v.funcOwner.getVar('UPDATE_URL')
-    if u ~= nil then
-      WebRequest.get(u,v.funcOwner,"updateModule")
-    end
-  end
-end
-
---Just checks if an update is available without actually updating.
-function updateCheck(wr)
-  wr = wr.text
-  local ver = versionComp(string.match(wr,"version = '(.-)'"),version)
-  if ''..ver ~= ''..version then
-    -- broadcastToAll("An update has been found. Please right click the encoder and select update.")
-  else
-    -- broadcastToAll("No update found at this time. Carry on.")
-  end
-end
---The callVersionCheck callback for the encoder webrequest.
-function versionCheck(wr)
-  wr = wr.text
-  local ver = versionComp(string.match(wr,"version = '(.-)'"),version)
-  if ''..ver ~= ''..version then
-    if CORE_VALUE.beta == true then
-      broadcastToAll("An update has been found for the beta branch. Reloading encoder.")
-    else
-      broadcastToAll("An update has been found for the main branch. Reloading encoder.")
-    end
-    self.script_code = wr
-    self.reload()
-  else
-    broadcastToAll("No update found at this time. Carry on.")
-  end
-end
+-- The self-updater was removed by pi (see the header): callVersionCheck,
+-- updateCheck and versionCheck used to pull Encoder Core -- and every module with
+-- an UPDATE_URL -- from upstream and overwrite this object's script, which would
+-- silently drop the local changes this table depends on. versionComp below stays:
+-- APIversionComp is part of the public API and modules call it.
 --Compares two version strings of "(/d*.+)*"
 --Examples: 1, 1.2, 0.1111.2, 0.0.0.0.1, 192.168.0.1
 function versionComp(a,b)
@@ -669,6 +615,16 @@ function buildButtons(o,h)
             Properties[k].funcOwner.call("createButtons",{obj=o})
           elseif h~=true and Properties[k].visible_in_hand<=1 then
             Properties[k].funcOwner.call("createButtons",{obj=o})
+          end
+        end
+      end
+      --Let external providers re-add their own buttons on top of ours. Wrapped
+      --so a broken provider can't take the encoder's own rebuild down with it.
+      for k,v in pairs(ExternalButtons) do
+        if v.funcOwner ~= nil then
+          local ok = pcall(function() v.funcOwner.call(v.func,{obj=o,inHand=h}) end)
+          if not ok then
+            log(nil,"External button provider "..k.." errored",0)
           end
         end
       end
@@ -1431,6 +1387,18 @@ function APIclearEditing(p)
   else
     Players[p.ply].editing = nil
   end
+end
+--Registers an external button provider (added by pi for this table).
+--p = { id = 'unique name', funcOwner = obj, func = 'function name' }
+--funcOwner.func is called as func({obj=<object>,inHand=<bool>}) at the end of
+--every button rebuild for an encoded object, after the encoder's own buttons.
+function APIregisterButtonProvider(p)
+  ExternalButtons[p.id] = {funcOwner=p.funcOwner, func=p.func}
+  log(nil,"External button provider "..p.id.." registered",0)
+end
+--Drops a previously registered external button provider.
+function APIunregisterButtonProvider(p)
+  ExternalButtons[p.id] = nil
 end
 --Builds the card buttons for all enabled properties.
 function APIrebuildButtons(p)

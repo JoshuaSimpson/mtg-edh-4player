@@ -31,6 +31,7 @@ settingsDefaults = {
 	fetchEntersTapped = false, -- tap a fetched land whose text (or the fetchland) says it enters tapped
 	keywordTokens = true,    -- dropping a keyword token (Frozen, Flying, ...) on a card applies that keyword
 	goblinStickers = true,   -- deal goblin sticker cards when a "_____ Goblin" starts in the library
+	mindmoil = true,         -- show the Mindmoil trigger button on a Mindmoil on this player's mat
 	keepPregameFlow = false, -- show the centre-mat Keep button and run the pregame-action announcement
 	revealResetSecs = 30,    -- seconds of inactivity before the reveal count resets
 }
@@ -53,6 +54,7 @@ settingsToggleIds = {
 	setFetchEntersTapped = "fetchEntersTapped",
 	setKeywordTokens = "keywordTokens",
 	setGoblinStickers = "goblinStickers",
+	setMindmoil = "mindmoil",
 	setKeepPregameFlow = "keepPregameFlow",
 }
 
@@ -82,6 +84,7 @@ enforceableKeys = {
 	"fetchEntersTapped",
 	"keywordTokens",
 	"goblinStickers",
+	"mindmoil",
 	"keepPregameFlow",
 }
 
@@ -194,6 +197,7 @@ settingsSearchRows = {
 	{ id = "row_commanderQOL", text = "commander qol buttons etali ral" },
 	{ id = "row_keywordTokens", text = "keyword tokens frozen flying apply drop card game" },
 	{ id = "row_goblinStickers", text = "goblin stickers game" },
+	{ id = "row_mindmoil", text = "mindmoil hand bottom library trigger button game" },
 	{ id = "row_keepPregameFlow", text = "keep pregame flow game" },
 	{ id = "row_revealResetSecs", text = "reveal reset seconds misc" },
 }
@@ -248,6 +252,7 @@ hostSearchRows = {
 	{ id = "hostrow_commanderQOL", text = "commander qol buttons etali ral" },
 	{ id = "hostrow_keywordTokens", text = "keyword tokens frozen flying apply drop card game" },
 	{ id = "hostrow_goblinStickers", text = "goblin stickers game" },
+	{ id = "hostrow_mindmoil", text = "mindmoil hand bottom library trigger button game" },
 	{ id = "hostrow_keepPregameFlow", text = "keep pregame flow game" },
 }
 
@@ -343,6 +348,8 @@ function settingsToggle(player, value, id)
 		refreshFetchPreviewsForColor(player.color)
 	elseif key == "keepPregameFlow" then
 		refreshKeepButton(player.color)
+	elseif key == "mindmoil" then
+		refreshMindmoilButtons(player.color)
 	end
 end
 
@@ -407,6 +414,8 @@ function hostToggleEnforced(player, value, id)
 		refreshAllFetchPreviews()
 	elseif key == "keepPregameFlow" then
 		refreshAllKeepButtons()
+	elseif key == "mindmoil" then
+		refreshMindmoilButtons()
 	end
 end
 
@@ -428,6 +437,8 @@ function hostToggleValue(player, value, id)
 		refreshAllFetchPreviews()
 	elseif key == "keepPregameFlow" then
 		refreshAllKeepButtons()
+	elseif key == "mindmoil" then
+		refreshMindmoilButtons()
 	end
 end
 
