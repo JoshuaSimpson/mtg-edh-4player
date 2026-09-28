@@ -117,8 +117,8 @@ end
 function buttonPress(button, T)
 	local posUp = button.getPosition()
 	local posDown = button.getPosition()
-	posUp.y = 1
-	posDown.y = 0.9
+	posUp.y = TABLE_SURFACE_Y + 0.035
+	posDown.y = TABLE_SURFACE_Y - 0.065
 	local downT = T
 	if downT < 0.05 then
 		downT = 0.05

@@ -4,6 +4,10 @@
 -- by src/core/init.lua (data[color]) and friends.
 SEAT_COLORS = { "White", "Red", "Yellow", "Blue" }
 PATCH_NOTES_POS = { -42, 1.1, 0 }
+-- reference surface height (4p table: 0.965; objects rest relative to it)
+TABLE_SURFACE_Y = 0.965
+-- table-specific scenery made non-interactable on load (see onload)
+TABLE_LOCKED_GUIDS = {  }
 SEATS = {
 	White = {
 		libraryZone = "166036",
@@ -103,6 +107,12 @@ function onload(saved)
 	buildTableButtons()
 	addZoneContextMenus()
 	for _, guid in pairs({ "cb1610", "a7a029", "4c02f8", "a3e6a8", "9c553c", "eb479b", "3d4319", "540e21" }) do
+		pcall(function()
+			getObjectFromGUID(guid).interactable = false
+		end)
+	end
+	-- plus the table's own scenery (the 6p board and extra chairs; see tables/)
+	for _, guid in ipairs(TABLE_LOCKED_GUIDS) do
 		pcall(function()
 			getObjectFromGUID(guid).interactable = false
 		end)
@@ -4427,8 +4437,8 @@ end
 function buttonPress(button, T)
 	local posUp = button.getPosition()
 	local posDown = button.getPosition()
-	posUp.y = 1
-	posDown.y = 0.9
+	posUp.y = TABLE_SURFACE_Y + 0.035
+	posDown.y = TABLE_SURFACE_Y - 0.065
 	local downT = T
 	if downT < 0.05 then
 		downT = 0.05
@@ -5792,7 +5802,7 @@ function declineCascade(card, ply)
 		waitT = 2
 	else -- move just the one cards on libBot
 		local pos = data[ply]["libraryZone"].getPosition()
-		pos.y = 0.96
+		pos.y = TABLE_SURFACE_Y - 0.005
 		local rot = card.getRotation()
 		rot.z = 180
 		Wait.time(function()

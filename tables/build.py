@@ -8,7 +8,7 @@ GUIDs of each seat's zones/buttons/trackers) and the physical objects.
         Print the seat config as Lua (SEAT_COLORS / SEATS / PATCH_NOTES_POS).
         The Makefile prepends it to src/ to make main.lua.
 
-    python3 tables/build.py generate6p build/6p
+    python3 tables/build.py generate6p build/6p [IMAGE_URL]
         Generate the 6-player table from the 4-player one (objects/*.json,
         save.template.json, tables/4p/seats.json) into build/6p/:
             seats.lua            the 6p seat config (prepend to src/ -> main.lua)
@@ -16,6 +16,8 @@ GUIDs of each seat's zones/buttons/trackers) and the physical objects.
             objects/*.json       every table object, laid out for 6 seats
             objects/*.lua        6p-specific copies of object scripts that
                                  hard-code the 4p colour lists
+            layout.json          seat geometry for tables/table_image.py, which
+                                 paints the 6p surface image (build/6p/table.png)
         tts_save.py build --table 6p assembles those into a save.
 
 The 6p table is derived, not hand-built, so anything changed on the 4p table
@@ -33,8 +35,13 @@ outer (high-u) end and the playmat inside it:
 To keep the table from getting huge the playmat is narrowed by SHRINK (from its
 inner edge), the column keeps its size, and the three seats are packed with GAP
 between them. Objects at the table ends (|x| >= END_X: counters, keyword bags,
-modules, importers, ...) slide outward to make room and the table model is
-stretched to match.
+modules, importers, ...) slide outward to make room.
+
+The stock wooden table can't be resized and its surface image has the four 4p
+mats painted on, so the 6p table lays a large locked board over it (a stretched
+Custom_Tile) showing a generated image: each seat's mat art cropped from the 4p
+image, narrowed by cutting SHRINK out of its empty middle, recoloured for the
+new seats, and pasted at exactly the generated zone positions.
 """
 
 import copy
@@ -59,12 +66,28 @@ MAT_INNER, MAT_OUTER = 0.9, 37.9  # u-extent of the 4p playmat
 MAT_WIDTH = MAT_OUTER - MAT_INNER
 COL_OUTER = 43.4  # u of the outer edge of the deck/command column
 END_X = 44.0  # non-seat objects beyond this |x| belong to a table end
-# Half-width of the 4p table model (the stretched asset bundle below). Not known
-# exactly -- the table-end bags sit at |x| ~ 54 -- so this is an estimate; tweak it
-# if the stretched table ends up too short or too long for the end objects.
-TABLE_HALF_WIDTH = 57.0
-TABLE_MODEL_GUID = "cb1610"
 CMDR_EXTRA_STEP = 1.4  # u offset of the second column of commander-damage trackers
+# where the strip is cut out of each seat's mat art (u), inside the empty middle
+ART_CUT_U = 15.0
+
+# The 6p board (a stretched Custom_Tile) laid over the stock table. The stock
+# Table_Custom top is ~110.3 x 75.2 with its surface at y ~0.965 (measured in
+# game); its end edge sits TABLE_END_MARGIN beyond the 4p seat columns, and the
+# board keeps that margin beyond the 6p rows so the table-end stations fit.
+TABLE_END_MARGIN = 55.17 - COL_OUTER
+BOARD_HALF_DEPTH = 33.0  # inside the stock table's wooden rim (+-37.6)
+# Heights (measured in game). The stock table's collider is at y 0.960, but its
+# *visible* surface is lower still: on the 4p table the life trackers' buttons
+# sit at 0.944 and still show, as do other thin tokens sunk into the surface.
+# The board is a solid visible surface, so it sits just above the stock
+# collider (hiding the 4p mat art without z-fighting) and every object is
+# lifted by LIFT so the lowest visible parts (those 0.944 buttons) clear it.
+STOCK_COLLIDER_Y = 0.960
+BOARD_TOP_Y = 0.965
+LIFT = 0.04
+BOARD_THICKNESS = 0.4
+# chairs: the room's scenery chairs, one per 4p seat (asset bundles below the table)
+CHAIR_Z = 50.0
 
 COLORS_6P = ["White", "Red", "Yellow", "Blue", "Green", "Purple"]
 NEW_SEATS = {"Purple": "White", "Green": "Yellow"}  # new colour -> 4p seat it copies
@@ -121,6 +144,10 @@ def render_lua(cfg: dict, source: str) -> str:
         "-- by src/core/init.lua (data[color]) and friends.\n"
         f"SEAT_COLORS = {lua_value(cfg['colors'], 0)}\n"
         f"PATCH_NOTES_POS = {lua_value(cfg['patchNotesPos'], 0)}\n"
+        "-- reference surface height (4p table: 0.965; objects rest relative to it)\n"
+        f"TABLE_SURFACE_Y = {lua_value(cfg['surfaceY'], 0)}\n"
+        "-- table-specific scenery made non-interactable on load (see onload)\n"
+        f"TABLE_LOCKED_GUIDS = {lua_value(cfg.get('lockedGuids', []), 0)}\n"
         f"SEATS = {lua_value({c: cfg['seats'][c] for c in cfg['colors']}, 0)}\n\n"
     )
 
@@ -164,7 +191,7 @@ def sign(x):
 
 
 # ------------------------------------------------------------------ generate
-def generate6p(out_dir: str) -> None:
+def generate6p(out_dir: str, image_url: str) -> None:
     with open(SEATS_4P, encoding="utf-8") as f:
         seats4 = json.load(f)
     with open(TEMPLATE_PATH, encoding="utf-8") as f:
@@ -184,7 +211,7 @@ def generate6p(out_dir: str) -> None:
     # the middle seat's column sits GAP inside the neighbouring end seat's mat
     middle_shift = MAT_INNER + outer_shift + SHRINK - GAP - COL_OUTER
     end_shift = outer_shift
-    table_ratio = (TABLE_HALF_WIDTH + end_shift) / TABLE_HALF_WIDTH
+    board_half_width = half + TABLE_END_MARGIN
 
     def group_shift(group, col_shift):
         # column keeps its size; the mat (and everything centred on it) loses
@@ -215,6 +242,13 @@ def generate6p(out_dir: str) -> None:
         elif o.get("Name") == "HandTrigger" and o.get("FogColor") in members:
             main_hand = o["Transform"]["scaleX"] > 15  # the small one is the side hand
             members[o["FogColor"]][g] = ("front" if main_hand else "column", main_hand)
+    # the room's chairs belong to the seat on their side of the table
+    quadrant = {(outward[c], sign(objects[s["libraryZone"]]["Transform"]["posZ"])): c
+                for c, s in seats4["seats"].items()}
+    for g, o in objects.items():
+        t = o["Transform"]
+        if o.get("Name") == "Custom_Assetbundle" and t["posY"] < -40 and abs(t["posZ"]) > CHAIR_Z:
+            members[quadrant[(sign(t["posX"]), sign(t["posZ"]))]][g] = ("front", False)
     seat_of = {g: c for c, m in members.items() for g in m}
 
     out = {}  # guid -> object, the 6p table
@@ -233,16 +267,15 @@ def generate6p(out_dir: str) -> None:
             continue
         o = copy.deepcopy(o)
         t = o["Transform"]
-        if g == TABLE_MODEL_GUID:
-            t["scaleX"] = round(t["scaleX"] * table_ratio, 4)
-        elif o.get("Name") == "Custom_Assetbundle" and t["posY"] < -40 and abs(t["posX"]) > 1:
-            t["posX"] = round(t["posX"] * table_ratio, 4)  # scenery sunk with the table model
-        elif abs(t["posX"]) >= END_X:
+        if abs(t["posX"]) >= END_X:
             t["posX"] = round(t["posX"] + sign(t["posX"]) * end_shift, 4)
         out[g] = o
 
     # --- the new seats: copies of a 4p seat, translated to the middle
-    seats6 = {"name": "6-player", "colors": COLORS_6P, "patchNotesPos": seats4["patchNotesPos"], "seats": {}}
+    pn = seats4["patchNotesPos"]
+    seats6 = {"name": "6-player", "colors": COLORS_6P, "patchNotesPos": [pn[0], round(pn[1] + LIFT, 3), pn[2]],
+              "surfaceY": round(seats4["surfaceY"] + LIFT, 3),  # the 4p reference height, lifted
+              "lockedGuids": list(seats4.get("lockedGuids", [])), "seats": {}}
     for c in seats4["colors"]:
         seats6["seats"][c] = copy.deepcopy(seats4["seats"][c])
     new_guid = {}  # (new colour, template guid) -> guid
@@ -260,6 +293,8 @@ def generate6p(out_dir: str) -> None:
             place(o, outward[tmpl], middle_shift, group, wide)
             new_guid[(new, g)] = o["GUID"]
             out[o["GUID"]] = o
+            if o.get("Name") == "Custom_Assetbundle":
+                seats6["lockedGuids"].append(o["GUID"])  # a chair, like the 4p ones
             src = tracked_script(g)
             if src is not None:
                 o["LuaScript"] = patch_sides(src)  # untracked GUID: carried inline
@@ -357,6 +392,48 @@ def generate6p(out_dir: str) -> None:
     template = copy.deepcopy(template)
     template["SnapPoints"] = snaps
 
+    # --- the board: a stretched Custom_Tile over the stock table. A stretched
+    # tile is (2 * image aspect * scaleX) x (2 * scaleZ); the image aspect is
+    # board_half_width / BOARD_HALF_DEPTH, so both scales are the half depth.
+    # lift everything onto the board's surface (not the room scenery under it)
+    for o in out.values():
+        t = o["Transform"]
+        if t["posY"] > -40:
+            t["posY"] = round(t["posY"] + LIFT, 4)
+    for sp in snaps:
+        sp["Position"]["y"] = round(sp["Position"]["y"] + LIFT, 4)
+
+    # a Custom_Tile's position is its *bottom* face, not its centre
+    board_guid = guids.make("board")
+    out[board_guid] = {
+        "GUID": board_guid, "Name": "Custom_Tile",
+        "Transform": {"posX": 0.0, "posY": BOARD_TOP_Y - BOARD_THICKNESS, "posZ": 0.0,
+                      "rotX": 0.0, "rotY": 0.0, "rotZ": 0.0,
+                      "scaleX": BOARD_HALF_DEPTH, "scaleY": 1.0, "scaleZ": BOARD_HALF_DEPTH},
+        "Nickname": "", "Description": "", "GMNotes": "", "Memo": "",
+        "ColorDiffuse": {"r": 1.0, "g": 1.0, "b": 1.0},
+        "Locked": True, "Grid": False, "Snap": False, "IgnoreFoW": False, "MeasureMovement": False,
+        "DragSelectable": False, "Autoraise": False, "Sticky": False, "Tooltip": False,
+        "GridProjection": False, "HideWhenFaceDown": False, "Hands": False,
+        "CustomImage": {"ImageURL": image_url, "ImageSecondaryURL": "", "ImageScalar": 1.0,
+                        "WidthScale": 0.0,
+                        "CustomTile": {"Type": 0, "Thickness": BOARD_THICKNESS,
+                                       "Stackable": False, "Stretch": True}},
+        "LuaScript": "", "LuaScriptState": "", "XmlUI": "",
+    }
+    seats6["lockedGuids"].append(board_guid)
+
+    # --- seat geometry for tables/table_image.py
+    layout = {
+        "sourceImage": template["TableURL"],
+        "boardHalfWidth": board_half_width, "boardHalfDepth": BOARD_HALF_DEPTH,
+        "shrink": SHRINK, "cutU": ART_CUT_U,
+        "seats": [{"color": c, "template": NEW_SEATS.get(c, c), "outward": outward[NEW_SEATS.get(c, c)],
+                   "shift": middle_shift if c in NEW_SEATS else outer_shift,
+                   "recolor": PLAYER_RGB.get(c)}
+                  for c in COLORS_6P],
+    }
+
     # --- write
     objects_out = os.path.join(out_dir, "objects")
     shutil.rmtree(objects_out, ignore_errors=True)
@@ -372,10 +449,12 @@ def generate6p(out_dir: str) -> None:
         json.dump(template, f, indent=2, ensure_ascii=False)
     with open(os.path.join(out_dir, "seats.json"), "w", encoding="utf-8") as f:
         json.dump(seats6, f, indent=2)
+    with open(os.path.join(out_dir, "layout.json"), "w", encoding="utf-8") as f:
+        json.dump(layout, f, indent=2)
     with open(os.path.join(out_dir, "seats.lua"), "w", encoding="utf-8") as f:
         f.write(render_lua(seats6, "tables/4p/seats.json via generate6p"))
     print(f"[6p] {len(out)} objects ({len(out) - len(objects)} new), rows {2 * half:.1f} wide, "
-          f"ends +{end_shift:.2f}, table x{table_ratio:.3f} -> {out_dir}")
+          f"ends +{end_shift:.2f}, board {2 * board_half_width:.1f} x {2 * BOARD_HALF_DEPTH:.1f} -> {out_dir}")
 
 
 _script_index = None
@@ -406,9 +485,14 @@ def main() -> None:
         with open(args[1], encoding="utf-8") as f:
             cfg = json.load(f)
         sys.stdout.write(render_lua(cfg, os.path.relpath(args[1], ROOT)))
-    elif len(args) == 2 and args[0] == "generate6p":
-        os.makedirs(args[1], exist_ok=True)
-        generate6p(args[1])
+    elif len(args) in (2, 3) and args[0] == "generate6p":
+        out_dir = os.path.abspath(args[1])
+        os.makedirs(out_dir, exist_ok=True)
+        # the board image: a URL others can load, or by default the local file
+        # (fine for testing as host; upload it and pass the URL for multiplayer)
+        image_url = args[2] if len(args) == 3 and args[2] else \
+            "file:///" + os.path.join(out_dir, "table.png").lstrip("/")
+        generate6p(out_dir, image_url)
     else:
         sys.exit(__doc__)
 

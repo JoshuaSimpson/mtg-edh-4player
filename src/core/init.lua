@@ -10,6 +10,12 @@ function onload(saved)
 			getObjectFromGUID(guid).interactable = false
 		end)
 	end
+	-- plus the table's own scenery (the 6p board and extra chairs; see tables/)
+	for _, guid in ipairs(TABLE_LOCKED_GUIDS) do
+		pcall(function()
+			getObjectFromGUID(guid).interactable = false
+		end)
+	end
 	Wait.frames(function()
 		for _, guid in pairs({ "02e062", "de4346", "d936a8", "b93b40" }) do
 			pcall(function()

@@ -427,7 +427,7 @@ function declineCascade(card, ply)
 		waitT = 2
 	else -- move just the one cards on libBot
 		local pos = data[ply]["libraryZone"].getPosition()
-		pos.y = 0.96
+		pos.y = TABLE_SURFACE_Y - 0.005
 		local rot = card.getRotation()
 		rot.z = 180
 		Wait.time(function()

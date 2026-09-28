@@ -2,6 +2,7 @@
   "name": "4-player",
   "colors": ["White", "Red", "Yellow", "Blue"],
   "patchNotesPos": [-42, 1.1, 0],
+  "surfaceY": 0.965,
   "seats": {
     "White": {
       "libraryZone": "166036", "graveyard": "68549d", "playmat": "8b3401", "landZone": "c24ef0",
