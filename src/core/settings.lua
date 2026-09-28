@@ -61,7 +61,7 @@ settingsToggleIds = {
 -- colour -> { key = value }
 playerSettings = playerSettings or {}
 
-settingsColors = { "White", "Red", "Yellow", "Blue" }
+settingsColors = SEAT_COLORS
 
 -- settings the host can enforce on everyone (booleans only). When a key is
 -- enforced, getSetting returns the enforced value for every colour and each

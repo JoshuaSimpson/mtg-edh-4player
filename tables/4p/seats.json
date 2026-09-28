@@ -1,0 +1,59 @@
+{
+  "name": "4-player",
+  "colors": ["White", "Red", "Yellow", "Blue"],
+  "patchNotesPos": [-42, 1.1, 0],
+  "seats": {
+    "White": {
+      "libraryZone": "166036", "graveyard": "68549d", "playmat": "8b3401", "landZone": "c24ef0",
+      "commandZone": "8fc485", "exileZone": "d614cb",
+      "mulliganButton": "3b07ae", "untapButton": "18fb5d", "drawButton": "26775a",
+      "scryButton": "614515", "millButton": "57914a", "revealButton": "d67eb4",
+      "lifeTracker": "23e485",
+      "commanderDamage": ["0f6598", "6b6e1f", "b748df"],
+      "deckDir": -1, "landTrackerLeft": false,
+      "spawns": {
+        "main": {"posX": 25.5, "posZ": -5, "rotY": 180},
+        "part": {"posX": 22.5, "posZ": -5, "rotY": 180}
+      }
+    },
+    "Red": {
+      "libraryZone": "2365d0", "graveyard": "07dd80", "playmat": "c20e3f", "landZone": "772714",
+      "commandZone": "750cd5", "exileZone": "878032",
+      "mulliganButton": "c53ac6", "untapButton": "86e447", "drawButton": "885f49",
+      "scryButton": "ffa67c", "millButton": "da5d0d", "revealButton": "0ad181",
+      "lifeTracker": "448880",
+      "commanderDamage": ["4bfa09", "95eb63", "d5907a"],
+      "deckDir": 1, "landTrackerLeft": true,
+      "spawns": {
+        "main": {"posX": -25.5, "posZ": -5, "rotY": 180},
+        "part": {"posX": -22.5, "posZ": -5, "rotY": 180}
+      }
+    },
+    "Yellow": {
+      "libraryZone": "033b34", "graveyard": "8b439a", "playmat": "129eaa", "landZone": "00f87d",
+      "commandZone": "c451cd", "exileZone": "ee5024",
+      "mulliganButton": "47645d", "untapButton": "1f3e4a", "drawButton": "305c12",
+      "scryButton": "8a4c8b", "millButton": "67b4a5", "revealButton": "59ab68",
+      "lifeTracker": "37e533",
+      "commanderDamage": ["45331a", "484c38", "906d4b"],
+      "deckDir": -1, "landTrackerLeft": false,
+      "spawns": {
+        "main": {"posX": -25.5, "posZ": 5, "rotY": 0},
+        "part": {"posX": -22.5, "posZ": 5, "rotY": 0}
+      }
+    },
+    "Blue": {
+      "libraryZone": "c04462", "graveyard": "debc40", "playmat": "56cd9d", "landZone": "e63cad",
+      "commandZone": "879cc5", "exileZone": "bc8e3c",
+      "mulliganButton": "e0a3bc", "untapButton": "e2f7ae", "drawButton": "b49d50",
+      "scryButton": "4e19c8", "millButton": "d06889", "revealButton": "c489e1",
+      "lifeTracker": "395037",
+      "commanderDamage": ["8d172a", "bfcf4a", "f43e61"],
+      "deckDir": 1, "landTrackerLeft": true,
+      "spawns": {
+        "main": {"posX": 25.5, "posZ": 5, "rotY": 0},
+        "part": {"posX": 22.5, "posZ": 5, "rotY": 0}
+      }
+    }
+  }
+}

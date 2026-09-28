@@ -5,7 +5,8 @@ A scripted [Tabletop Simulator](https://store.steampowered.com/app/286160/) mod 
 ## Layout
 
 - `src/*.lua` — the Lua source, split into modules.
-- `main.lua` — built artifact, concatenated from `src/` (don't edit directly).
+- `main.lua` — built artifact: the seat config plus `src/` concatenated (don't edit directly).
+- `tables/` — per-table seat configs (`4p/seats.json`) and `build.py`, which generates the 6-player table into `build/6p/`.
 - `ui.xml` — Global screen-space UI.
 - `objects/<name>.<guid>.json` — per-object save data (transforms, image URLs, contained cards, …), one file per table object.
 - `objects/<name>.<guid>.{lua,xml}` — that object's script / UI (single source; injected into the JSON at build time).
@@ -28,7 +29,14 @@ make save                                    # objects/*.json + main.lua/ui.xml 
 
 `make split` defaults to the most-recently-modified `TS_Save_*.json`. `make save`
 writes `MTG EDH 4-player (χ) <version>-<YYYYMMDDHHMMSS>.json` (version read from
-`src/patchnotes.lua`) into the directory named by `SAVE_DIR` in a local `.env`
+`src/ui/patchnotes.lua`) into the directory named by `SAVE_DIR` in a local `.env`
 (copy `.env.example`); override per-run with `make save SAVE_OUT="path/to/Saves"`.
 
-Releases are versioned with git tags (`vX.Y.Z`); bump `VERSION` in `src/patchnotes.lua` when cutting one.
+### 6-player table
+
+`make save TABLE=6p` builds a 6-player version of the table (three seats per
+long side; Green and Purple join). It is generated from the 4-player table by
+`tables/build.py` into `build/6p/` (not committed), so changes to the 4-player
+table and scripts carry over automatically. Don't `make split` a 6-player save.
+
+Releases are versioned with git tags (`vX.Y.Z`); bump `VERSION` in `src/ui/patchnotes.lua` when cutting one.

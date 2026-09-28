@@ -80,7 +80,7 @@ function spawnPatchNotesButton()
 	end
 	spawnObject({
 		type = "BlockSquare",
-		position = { -42, 1.1, 0 },
+		position = PATCH_NOTES_POS,
 		rotation = { 0, 90, 0 },
 		scale = { 1.1, 0.2, 0.9 },
 		callback_function = function(obj)

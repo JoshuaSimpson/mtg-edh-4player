@@ -47,9 +47,10 @@ function createLandTrackerButtons(color)
 	local scale = mat.getScale()
 	local textScale = { 1 / scale.x, 1 / scale.y, 1 / scale.z }
 
-	-- White/Yellow display on the right, Blue/Red on the left (old layout)
+	-- which end of the mat the text sits at comes from the table config (on the
+	-- 4-player table White/Yellow display on the right, Blue/Red on the left)
 	local posX = 0.5
-	if color == "Blue" or color == "Red" then
+	if SEATS[color].landTrackerLeft then
 		posX = -0.5
 	end
 
