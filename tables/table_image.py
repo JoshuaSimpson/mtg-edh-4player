@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Paint the 6-player table surface (build/6p/table.png) from the 4-player one.
+Paint the 6-player table surface (build/6p/table-<hash>.png, the name build.py
+puts in layout.json) from the 4-player one.
 
     python3 tables/table_image.py build/6p
 
@@ -8,8 +9,9 @@ Reads build/6p/layout.json (written by `tables/build.py generate6p`) and the 4p
 table image (TableURL in save.template.json, downloaded once into build/cache/).
 Needs Pillow and numpy -- the Makefile runs this in a local .venv.
 
-The 4p image is 9500 x 5600 px at ~110 px per world unit, centred on the table,
-with one seat per quadrant: each seat's art (mat outline, land strip, deck /
+The 4p image is 9500 x 5600 px at 108.1 px per world unit (fitted from the
+4p library / graveyard / exile / commander zones against their icon boxes,
+which line up to ~0.05 units), with one seat per quadrant: each seat's art (mat outline, land strip, deck /
 graveyard / exile and commander icons) spans u = 0 .. 43.2 from the centre line
 outward. For every 6p seat the matching 4p quadrant is cropped, split at
 layout.cutU with a `shrink`-wide strip dropped (the mat's empty middle, so the
@@ -28,7 +30,9 @@ from PIL import Image
 
 Image.MAX_IMAGE_PIXELS = None
 
-SRC_PPU = 110.0  # 4p image pixels per world unit
+SRC_PPU = 108.1  # 4p image pixels per world unit
+# the 4p image pixel at world (0, 0): horizontally centred, 9 px above centre
+SRC_ORIGIN_PX = (4750.0, 2790.7)
 OUT_PPU = 60.0  # 6p image pixels per world unit (keeps it under 8192 px wide)
 FELT = (51, 51, 51)  # the 4p image's background
 BORDER = (99, 83, 81)  # outline colour used by the mod's panels
@@ -71,11 +75,14 @@ def main() -> None:
     out_dir = sys.argv[1]
     with open(os.path.join(out_dir, "layout.json"), encoding="utf-8") as f:
         layout = json.load(f)
+    path = os.path.join(out_dir, layout["imageFile"])
+    if os.path.exists(path):
+        print(f"[6p] table image up to date -> {path}")
+        return
     src = source_image(layout["sourceImage"])
     sw, sh = src.size
-    scx, scy = sw / 2, sh / 2
+    scx, scy = SRC_ORIGIN_PX
     u_max = scx / SRC_PPU  # art extends to the image edge
-    z_max = scy / SRC_PPU
 
     bx, bz = layout["boardHalfWidth"], layout["boardHalfDepth"]
     ow, oh = round(2 * bx * OUT_PPU), round(2 * bz * OUT_PPU)
@@ -96,19 +103,19 @@ def main() -> None:
             x0, x1 = sorted((o * ua, o * ub))
             box = (round(scx + x0 * SRC_PPU), 0 if zs > 0 else round(scy),
                    round(scx + x1 * SRC_PPU), round(scy) if zs > 0 else sh)
+            z_extent = (box[3] - box[1]) / SRC_PPU
             crop = src.crop(box)
             if seat["recolor"]:
                 crop = Image.fromarray(recolour(np.asarray(crop), seat["recolor"]))
             # destination
             dx0 = o * (ua + shift) if o > 0 else -(ub + shift)
             w = round((ub - ua) * OUT_PPU)
-            h = round(z_max * OUT_PPU)
+            h = round(z_extent * OUT_PPU)
             crop = crop.resize((w, h), Image.LANCZOS)
             px = round(ocx + dx0 * OUT_PPU)
             py = round(ocy - h) if zs > 0 else round(ocy)
             out.paste(crop, (px, py))
 
-    path = os.path.join(out_dir, "table.png")
     out.save(path, optimize=True)
     print(f"[6p] painted {ow} x {oh} table image -> {path}")
 

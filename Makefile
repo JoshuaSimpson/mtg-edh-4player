@@ -50,15 +50,18 @@ main.lua: $(SEATS_4P) $(TABLE_PY) $(SRC)
 #
 # The 6p board image is painted from the 4p table image by tables/table_image.py
 # (needs Pillow + numpy, installed into a local .venv on first use). By default
-# the board points at that PNG on disk, which works when you host; for others to
-# see it, upload build/6p/table.png (TTS: Modding > Cloud Manager) and build with
+# the board points at that PNG on disk (build/6p/table-<hash>.png, renamed
+# whenever its content changes so TTS doesn't show a stale copy), which works
+# when you host; for others to see it, upload it (TTS: Modding > Cloud Manager)
+# and build with
 #   make save TABLE=6p TABLE6P_IMAGE_URL=<url>
 TABLE6P_IMAGE_URL ?=
 build/6p/main.lua: $(SEATS_4P) $(TABLE_PY) $(SRC) $(wildcard objects/*) save.template.json FORCE_URL
 	python3 $(TABLE_PY) generate6p build/6p "$(TABLE6P_IMAGE_URL)"
 	cat build/6p/seats.lua $(SRC) > build/6p/main.lua
 
-build/6p/table.png: build/6p/main.lua tables/table_image.py .venv/.ok
+.PHONY: build/6p/table-image
+build/6p/table-image: build/6p/main.lua .venv/.ok
 	.venv/bin/python tables/table_image.py build/6p
 
 .venv/.ok:
@@ -91,7 +94,7 @@ check:
 SAVE_OUT ?=
 TABLE ?= 4p
 .PHONY: save
-save: $(if $(filter 4p,$(TABLE)),main.lua,build/$(TABLE)/main.lua build/$(TABLE)/table.png)
+save: $(if $(filter 4p,$(TABLE)),main.lua,build/$(TABLE)/main.lua build/$(TABLE)/table-image)
 	python3 tts_save.py build --table $(TABLE) $(if $(SAVE_OUT),--out-dir "$(SAVE_OUT)")
 
 # Decompose a TTS save back into per-object JSON + save.template.json.

@@ -191,7 +191,7 @@ def sign(x):
 
 
 # ------------------------------------------------------------------ generate
-def generate6p(out_dir: str, image_url: str) -> None:
+def generate6p(out_dir: str, image_url: str = None) -> None:
     with open(SEATS_4P, encoding="utf-8") as f:
         seats4 = json.load(f)
     with open(TEMPLATE_PATH, encoding="utf-8") as f:
@@ -403,12 +403,37 @@ def generate6p(out_dir: str, image_url: str) -> None:
     for sp in snaps:
         sp["Position"]["y"] = round(sp["Position"]["y"] + LIFT, 4)
 
-    # a Custom_Tile's position is its *bottom* face, not its centre
+    # --- seat geometry for tables/table_image.py
+    layout = {
+        "sourceImage": template["TableURL"],
+        "boardHalfWidth": board_half_width, "boardHalfDepth": BOARD_HALF_DEPTH,
+        "shrink": SHRINK, "cutU": ART_CUT_U,
+        "seats": [{"color": c, "template": NEW_SEATS.get(c, c), "outward": outward[NEW_SEATS.get(c, c)],
+                   "shift": middle_shift if c in NEW_SEATS else outer_shift,
+                   "recolor": PLAYER_RGB.get(c)}
+                  for c in COLORS_6P],
+    }
+
+    # The image is named after a hash of everything that paints it, so a changed
+    # image gets a new path: TTS reuses an image it has already loaded for a URL
+    # for the rest of the session, even a local file that has since changed.
+    with open(os.path.join(HERE, "table_image.py"), "rb") as f:
+        painter = f.read()
+    digest = hashlib.sha1(json.dumps(layout, sort_keys=True).encode() + painter).hexdigest()[:10]
+    layout["imageFile"] = f"table-{digest}.png"
+    if not image_url:
+        # the local file: fine for testing as host; upload it and pass the URL
+        # for anyone else to see the board
+        image_url = "file:///" + os.path.join(out_dir, layout["imageFile"]).lstrip("/")
+
+    # a Custom_Tile's position is its *bottom* face, not its centre; and it maps
+    # its image rotated 180 degrees relative to the stock table (image top ->
+    # -z), so the board is turned round to put the painted north row at +z
     board_guid = guids.make("board")
     out[board_guid] = {
         "GUID": board_guid, "Name": "Custom_Tile",
         "Transform": {"posX": 0.0, "posY": BOARD_TOP_Y - BOARD_THICKNESS, "posZ": 0.0,
-                      "rotX": 0.0, "rotY": 0.0, "rotZ": 0.0,
+                      "rotX": 0.0, "rotY": 180.0, "rotZ": 0.0,
                       "scaleX": BOARD_HALF_DEPTH, "scaleY": 1.0, "scaleZ": BOARD_HALF_DEPTH},
         "Nickname": "", "Description": "", "GMNotes": "", "Memo": "",
         "ColorDiffuse": {"r": 1.0, "g": 1.0, "b": 1.0},
@@ -422,17 +447,6 @@ def generate6p(out_dir: str, image_url: str) -> None:
         "LuaScript": "", "LuaScriptState": "", "XmlUI": "",
     }
     seats6["lockedGuids"].append(board_guid)
-
-    # --- seat geometry for tables/table_image.py
-    layout = {
-        "sourceImage": template["TableURL"],
-        "boardHalfWidth": board_half_width, "boardHalfDepth": BOARD_HALF_DEPTH,
-        "shrink": SHRINK, "cutU": ART_CUT_U,
-        "seats": [{"color": c, "template": NEW_SEATS.get(c, c), "outward": outward[NEW_SEATS.get(c, c)],
-                   "shift": middle_shift if c in NEW_SEATS else outer_shift,
-                   "recolor": PLAYER_RGB.get(c)}
-                  for c in COLORS_6P],
-    }
 
     # --- write
     objects_out = os.path.join(out_dir, "objects")
@@ -488,11 +502,8 @@ def main() -> None:
     elif len(args) in (2, 3) and args[0] == "generate6p":
         out_dir = os.path.abspath(args[1])
         os.makedirs(out_dir, exist_ok=True)
-        # the board image: a URL others can load, or by default the local file
-        # (fine for testing as host; upload it and pass the URL for multiplayer)
-        image_url = args[2] if len(args) == 3 and args[2] else \
-            "file:///" + os.path.join(out_dir, "table.png").lstrip("/")
-        generate6p(out_dir, image_url)
+        # the board image URL: one others can load, or by default the local file
+        generate6p(out_dir, args[2] if len(args) == 3 else None)
     else:
         sys.exit(__doc__)
 
